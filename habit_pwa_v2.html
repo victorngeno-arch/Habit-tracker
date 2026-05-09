@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Habit Tracker</title>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#7F77DD"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="Habits"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f5f0;color:#1a1a1a;min-height:100dvh}
+    #app{max-width:520px;margin:0 auto;padding:1.5rem 1rem 6rem}
+
+    /* NAV */
+    .nav{display:flex;gap:4px;margin-bottom:1.5rem;background:#e8e8e2;border-radius:10px;padding:4px}
+    .nav-btn{flex:1;padding:7px 0;border:none;background:none;border-radius:7px;font-size:13px;cursor:pointer;color:#666;font-weight:500;transition:all 0.15s}
+    .nav-btn.active{background:#fff;color:#1a1a1a;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+
+    /* HEADER */
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.25rem}
+    h1{font-size:20px;font-weight:500}
+    .subtitle{font-size:13px;color:#888;margin-top:2px}
+
+    /* PROGRESS */
+    .progress-wrap{margin-bottom:1.5rem}
+    .progress-labels{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;color:#666}
+    .progress-labels span:last-child{font-weight:500;color:#1a1a1a}
+    .progress-bar{height:8px;border-radius:99px;background:#e0e0da;overflow:hidden}
+    .progress-fill{height:100%;border-radius:99px;background:#7F77DD;transition:width 0.4s ease}
+    .all-done{margin-top:8px;font-size:13px;color:#1D9E75;font-weight:500}
+
+    /* FILTER */
+    .filter-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem}
+    .filter-chip{padding:5px 12px;border-radius:99px;border:0.5px solid #ddd;background:#fff;font-size:12px;cursor:pointer;color:#666;transition:all 0.15s}
+    .filter-chip.active{background:#7F77DD;color:#fff;border-color:#7F77DD}
+
+    /* HABITS */
+    .habits{display:flex;flex-direction:column;gap:10px;margin-bottom:1.5rem}
+    .empty{text-align:center;padding:2rem;color:#aaa;font-size:14px;border:1px dashed #ddd;border-radius:12px}
+    .habit-card{background:#fff;border:0.5px solid #e0e0da;border-radius:12px;overflow:hidden;transition:opacity 0.2s}
+    .habit-card.checked{opacity:0.8}
+    .habit-main{display:flex;align-items:center;gap:12px;padding:0.75rem 1rem}
+    .check-btn{width:28px;height:28px;border-radius:50%;border:2px solid #888;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;outline:none}
+    .check-btn.checked{background:var(--c);border-color:var(--c)}
+    .check-btn svg{display:none}
+    .check-btn.checked svg{display:block}
+    .habit-info{flex:1;min-width:0}
+    .habit-name{font-weight:500;font-size:15px}
+    .habit-name.done{text-decoration:line-through;color:#888}
+    .habit-meta{display:flex;gap:10px;font-size:12px;color:#888;margin-top:2px;flex-wrap:wrap}
+    .cat-badge{font-size:11px;padding:2px 8px;border-radius:99px;font-weight:500}
+    .habit-actions{display:flex;gap:4px}
+    .icon-btn{background:none;border:none;cursor:pointer;color:#bbb;font-size:18px;padding:4px;line-height:1;border-radius:6px}
+    .icon-btn:hover{color:#7F77DD;background:#f0effe}
+
+    /* WEEK GRID */
+    .week-grid{display:flex;gap:4px;padding:0 1rem 0.75rem;align-items:center}
+    .week-day{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
+    .week-label{font-size:10px;color:#aaa}
+    .week-dot{width:18px;height:18px;border-radius:50%;background:#f0effe;border:1px solid #e0e0da;transition:background 0.2s}
+    .week-dot.done{background:var(--c);border-color:var(--c)}
+
+    /* ADD FORM */
+    .add-form{background:#fff;border:0.5px solid #e0e0da;border-radius:12px;padding:1rem;margin-bottom:1rem}
+    .form-row{display:flex;gap:8px;margin-bottom:8px}
+    .form-row:last-child{margin-bottom:0}
+    .form-row input,.form-row select{flex:1;font-size:14px;padding:0 12px;height:38px;border:0.5px solid #ddd;border-radius:8px;outline:none;background:#fff;color:#1a1a1a}
+    .form-row input:focus,.form-row select:focus{border-color:#7F77DD}
+    .add-btn{padding:0 18px;height:38px;background:#7F77DD;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;white-space:nowrap}
+    .add-btn:disabled{opacity:0.4;cursor:default}
+    .toggle-add{width:100%;padding:10px;border:0.5px dashed #ccc;background:none;border-radius:10px;color:#888;font-size:14px;cursor:pointer;margin-bottom:1rem}
+    .toggle-add:hover{border-color:#7F77DD;color:#7F77DD}
+
+    /* POMODORO */
+    .pomo-wrap{text-align:center;padding:1.5rem 1rem}
+    .pomo-ring{position:relative;width:180px;height:180px;margin:0 auto 1.5rem}
+    .pomo-ring svg{transform:rotate(-90deg)}
+    .pomo-ring circle{fill:none;stroke-width:10;stroke-linecap:round}
+    .pomo-track{stroke:#e8e8e2}
+    .pomo-progress{stroke:#7F77DD;transition:stroke-dashoffset 1s linear}
+    .pomo-time{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:36px;font-weight:500;letter-spacing:-1px}
+    .pomo-label{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);font-size:12px;color:#888}
+    .pomo-controls{display:flex;gap:10px;justify-content:center;margin-bottom:1.5rem}
+    .pomo-btn{padding:10px 24px;border-radius:99px;border:none;font-size:14px;cursor:pointer;font-weight:500}
+    .pomo-btn.primary{background:#7F77DD;color:#fff}
+    .pomo-btn.secondary{background:#e8e8e2;color:#444}
+    .pomo-habit-select{width:100%;max-width:300px;font-size:14px;padding:0 12px;height:38px;border:0.5px solid #ddd;border-radius:8px;outline:none;background:#fff;margin-bottom:1rem}
+    .pomo-habit-select:focus{border-color:#7F77DD}
+    .pomo-sessions{font-size:13px;color:#888;margin-top:0.5rem}
+    .pomo-mode-btns{display:flex;gap:6px;justify-content:center;margin-bottom:1.5rem}
+    .pomo-mode-btn{padding:6px 16px;border-radius:99px;border:0.5px solid #ddd;background:#fff;font-size:12px;cursor:pointer;color:#666}
+    .pomo-mode-btn.active{background:#7F77DD;color:#fff;border-color:#7F77DD}
+
+    /* REMINDER */
+    .reminder-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#666;padding:0.5rem 1rem;border-top:0.5px solid #f0f0ea}
+    .reminder-row input[type=time]{border:0.5px solid #ddd;border-radius:6px;padding:3px 8px;font-size:13px;outline:none;background:#fff}
+    .reminder-row input[type=time]:focus{border-color:#7F77DD}
+    .reminder-toggle{margin-left:auto;position:relative;width:36px;height:20px}
+    .reminder-toggle input{opacity:0;width:0;height:0}
+    .reminder-toggle span{position:absolute;inset:0;background:#ddd;border-radius:99px;cursor:pointer;transition:background 0.2s}
+    .reminder-toggle span::after{content:'';position:absolute;width:14px;height:14px;background:#fff;border-radius:50%;top:3px;left:3px;transition:transform 0.2s}
+    .reminder-toggle input:checked+span{background:#7F77DD}
+    .reminder-toggle input:checked+span::after{transform:translateX(16px)}
+
+    /* NOTIF BANNER */
+    .notif-banner{background:#fff8e6;border:0.5px solid #f0c060;border-radius:10px;padding:0.75rem 1rem;font-size:13px;color:#7a5800;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .notif-banner button{padding:5px 12px;border-radius:6px;border:none;background:#f0c060;color:#7a5800;font-size:12px;cursor:pointer;white-space:nowrap}
+
+    @media(prefers-color-scheme:dark){
+      body{background:#1a1a1a;color:#f0f0f0}
+      .nav{background:#2a2a2a}
+      .nav-btn.active{background:#3a3a3a;color:#f0f0f0}
+      .habit-card,.add-form{background:#2a2a2a;border-color:#333}
+      .check-btn{background:#2a2a2a;border-color:#666}
+      .progress-bar{background:#333}
+      .progress-labels span:last-child{color:#f0f0f0}
+      .form-row input,.form-row select,.pomo-habit-select{background:#2a2a2a;border-color:#444;color:#f0f0f0}
+      .filter-chip{background:#2a2a2a;border-color:#444;color:#aaa}
+      .week-dot{background:#2a2a2a;border-color:#333}
+      .pomo-track{stroke:#2a2a2a}
+      .pomo-btn.secondary{background:#2a2a2a;color:#ccc}
+      .pomo-mode-btn{background:#2a2a2a;border-color:#444;color:#aaa}
+      .reminder-row input[type=time]{background:#2a2a2a;border-color:#444;color:#f0f0f0}
+      .icon-btn:hover{background:#2a2a38}
+      .toggle-add{border-color:#444;color:#666}
+      .reminder-row{color:#aaa;border-color:#333}
+      .notif-banner{background:#3a3000;border-color:#7a5800;color:#f0c060}
+      .notif-banner button{background:#7a5800;color:#f0c060}
+    }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const KEY = "habit_tracker_v2";
+const CATS = ["All","Morning","Evening","Health","Work","Personal"];
+const CAT_COLORS = {Morning:"#BA7517",Evening:"#7F77DD",Health:"#1D9E75",Work:"#378ADD",Personal:"#D4537E",General:"#888"};
+const HABIT_COLORS = ["#7F77DD","#1D9E75","#D85A30","#378ADD","#BA7517","#D4537E","#639922"];
+const POMO_DURATIONS = {focus:25*60,short:5*60,long:15*60};
+
+let state = {
+  habits: [],
+  view: "habits",
+  filter: "All",
+  showAdd: false,
+  newName: "",
+  newCat: "Morning",
+  newTime: "",
+  newReminder: false,
+  pomo: {mode:"focus", running:false, seconds:25*60, sessions:0, habitId:null, interval:null},
+  notifGranted: Notification?.permission === "granted"
+};
+
+function load() {
+  try { const d = JSON.parse(localStorage.getItem(KEY)); if(d?.habits) state.habits = d.habits; } catch(e){}
+}
+function save() { localStorage.setItem(KEY, JSON.stringify({habits:state.habits})); }
+
+function today() { return new Date().toISOString().split("T")[0]; }
+function last7() {
+  return Array.from({length:7},(_,i)=>{
+    const d=new Date(); d.setDate(d.getDate()-6+i);
+    return d.toISOString().split("T")[0];
+  });
+}
+function dayLabel(iso) { return new Date(iso).toLocaleDateString("en",{weekday:"short"}).slice(0,2); }
+
+function getStreak(h) {
+  const log=h.log||{}; let s=0,d=new Date();
+  while(true){const k=d.toISOString().split("T")[0];if(!log[k])break;s++;d.setDate(d.getDate()-1);}
+  return s;
+}
+function getLongest(h) {
+  const dates=Object.keys(h.log||{}).filter(k=>h.log[k]).sort();
+  let max=0,cur=0,prev=null;
+  for(const d of dates){cur=prev&&(new Date(d)-new Date(prev))/86400000===1?cur+1:1;if(cur>max)max=cur;prev=d;}
+  return max;
+}
+
+function toggle(id) {
+  const d=today();
+  state.habits=state.habits.map(h=>h.id===id?{...h,log:{...h.log,[d]:!h.log[d]}}:h);
+  save(); render();
+}
+function remove(id) { state.habits=state.habits.filter(h=>h.id!==id); save(); render(); }
+
+function addHabit() {
+  const name=state.newName.trim(); if(!name)return;
+  state.habits.push({
+    id:Date.now(),name,log:{},
+    color:HABIT_COLORS[state.habits.length%HABIT_COLORS.length],
+    category:state.newCat||"Morning",
+    reminder:state.newReminder,
+    reminderTime:state.newTime
+  });
+  state.newName=""; state.newTime=""; state.newReminder=false; state.showAdd=false;
+  save(); scheduleReminders(); render();
+}
+
+function updateReminder(id, field, val) {
+  state.habits=state.habits.map(h=>h.id===id?{...h,[field]:val}:h);
+  save(); scheduleReminders(); render();
+}
+
+async function requestNotif() {
+  if(!("Notification" in window))return;
+  const r = await Notification.requestPermission();
+  state.notifGranted = r==="granted"; render();
+}
+
+function scheduleReminders() {
+  if(!state.notifGranted)return;
+  state.habits.forEach(h=>{
+    if(!h.reminder||!h.reminderTime)return;
+    const [hh,mm]=h.reminderTime.split(":").map(Number);
+    const now=new Date(), fire=new Date();
+    fire.setHours(hh,mm,0,0);
+    if(fire<=now)fire.setDate(fire.getDate()+1);
+    const ms=fire-now;
+    setTimeout(()=>{
+      if(!h.log[today()]) new Notification("Habit Reminder",{body:`Time to: ${h.name}`,icon:"icon-192.png"});
+    },ms);
+  });
+}
+
+/* POMODORO */
+function pomoStart() {
+  if(state.pomo.running)return;
+  state.pomo.running=true;
+  state.pomo.interval=setInterval(()=>{
+    state.pomo.seconds--;
+    if(state.pomo.seconds<=0){
+      clearInterval(state.pomo.interval);
+      state.pomo.running=false;
+      state.pomo.sessions++;
+      if(state.notifGranted) new Notification("Pomodoro done!",{body:state.pomo.mode==="focus"?"Take a break!":"Back to focus!",icon:"icon-192.png"});
+      if(state.pomo.mode==="focus"&&state.pomo.habitId){
+        const h=state.habits.find(x=>x.id===state.pomo.habitId);
+        if(h){toggle(state.pomo.habitId);}
+      }
+      state.pomo.mode=state.pomo.mode==="focus"?"short":"focus";
+      state.pomo.seconds=POMO_DURATIONS[state.pomo.mode];
+    }
+    render();
+  },1000);
+  render();
+}
+function pomoPause() { clearInterval(state.pomo.interval); state.pomo.running=false; render(); }
+function pomoReset() {
+  clearInterval(state.pomo.interval); state.pomo.running=false;
+  state.pomo.seconds=POMO_DURATIONS[state.pomo.mode]; render();
+}
+function pomoSetMode(m) {
+  clearInterval(state.pomo.interval); state.pomo.running=false;
+  state.pomo.mode=m; state.pomo.seconds=POMO_DURATIONS[m]; render();
+}
+
+function fmtTime(s) { return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`; }
+
+function renderHabits() {
+  const d=today(), days=last7();
+  const filtered=state.filter==="All"?state.habits:state.habits.filter(h=>h.category===state.filter);
+  const done=state.habits.filter(h=>h.log[d]).length;
+  const pct=state.habits.length?Math.round(done/state.habits.length*100):0;
+  const notifBanner=!state.notifGranted&&"Notification" in window
+    ?`<div class="notif-banner">Enable notifications for reminders <button onclick="requestNotif()">Enable</button></div>`:"";
+  const filterChips=CATS.map(c=>`<button class="filter-chip${state.filter===c?" active":""}" onclick="setFilter('${c}')">${c}</button>`).join("");
+  const habitCards=filtered.length===0
+    ?'<div class="empty">No habits in this category</div>'
+    :filtered.map(h=>{
+      const checked=!!h.log[d];
+      const catColor=CAT_COLORS[h.category]||"#888";
+      const weekDots=days.map(day=>`<div class="week-day"><div class="week-label">${dayLabel(day)}</div><div class="week-dot${h.log[day]?" done":""}" style="--c:${h.color}"></div></div>`).join("");
+      return `<div class="habit-card${checked?" checked":""}" style="border-left:3px solid ${h.color}">
+        <div class="habit-main">
+          <button class="check-btn${checked?" checked":""}" style="--c:${h.color}" onclick="toggle(${h.id})">
+            <svg width="13" height="10" viewBox="0 0 13 10" fill="none"><path d="M1 5l4 4 7-8" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="habit-info">
+            <div class="habit-name${checked?" done":""}">${h.name}</div>
+            <div class="habit-meta">
+              <span>🔥 ${getStreak(h)} streak</span>
+              <span>Best: ${getLongest(h)}</span>
+              <span class="cat-badge" style="background:${catColor}22;color:${catColor}">${h.category}</span>
+            </div>
+          </div>
+          <div class="habit-actions">
+            <button class="icon-btn" onclick="removeHabit(${h.id})" title="Delete">✕</button>
+          </div>
+        </div>
+        <div class="week-grid" style="--c:${h.color}">${weekDots}</div>
+        <div class="reminder-row">
+          <span>⏰ Reminder</span>
+          <input type="time" value="${h.reminderTime||""}" onchange="updateReminder(${h.id},'reminderTime',this.value)" ${!h.reminder?"disabled":""} />
+          <label class="reminder-toggle"><input type="checkbox" ${h.reminder?"checked":""} onchange="updateReminder(${h.id},'reminder',this.checked)"><span></span></label>
+        </div>
+      </div>`;
+    }).join("");
+
+  const addForm=state.showAdd?`
+    <div class="add-form">
+      <div class="form-row">
+        <input id="new-habit" type="text" placeholder="Habit name…" value="${state.newName}" oninput="state.newName=this.value" onkeydown="if(event.key==='Enter')addHabit()"/>
+      </div>
+      <div class="form-row">
+        <select onchange="state.newCat=this.value">
+          ${["Morning","Evening","Health","Work","Personal"].map(c=>`<option value="${c}" ${state.newCat===c?"selected":""}>${c}</option>`).join("")}
+        </select>
+        <input type="time" value="${state.newTime}" onchange="state.newTime=this.value" placeholder="Reminder time"/>
+      </div>
+      <div class="form-row">
+        <button class="add-btn" onclick="addHabit()" ${!state.newName.trim()?"disabled":""}>Add Habit</button>
+        <button class="add-btn" style="background:#e8e8e2;color:#444" onclick="state.showAdd=false;render()">Cancel</button>
+      </div>
+    </div>`
+    :`<button class="toggle-add" onclick="state.showAdd=true;render()">+ Add a new habit</button>`;
+
+  return `
+    <div class="header">
+      <div><h1>Habit Tracker</h1><div class="subtitle">${new Date().toLocaleDateString("en-KE",{weekday:"long",month:"long",day:"numeric"})}</div></div>
+    </div>
+    ${notifBanner}
+    ${state.habits.length?`
+    <div class="progress-wrap">
+      <div class="progress-labels"><span>Today's progress</span><span>${done}/${state.habits.length} done</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      ${pct===100?'<div class="all-done">All habits complete for today! 🎉</div>':""}
+    </div>`:""}
+    <div class="filter-row">${filterChips}</div>
+    <div class="habits">${habitCards}</div>
+    ${addForm}`;
+}
+
+function renderPomo() {
+  const total=POMO_DURATIONS[state.pomo.mode];
+  const r=80, circ=2*Math.PI*r;
+  const offset=circ*(1-state.pomo.seconds/total);
+  const modeLabel={focus:"Focus",short:"Short break",long:"Long break"}[state.pomo.mode];
+  const habitOptions=`<option value="">— Link to a habit (optional) —</option>`+
+    state.habits.map(h=>`<option value="${h.id}" ${state.pomo.habitId==h.id?"selected":""}>${h.name}</option>`).join("");
+  return `
+    <div class="pomo-wrap">
+      <div class="pomo-mode-btns">
+        <button class="pomo-mode-btn${state.pomo.mode==="focus"?" active":""}" onclick="pomoSetMode('focus')">Focus</button>
+        <button class="pomo-mode-btn${state.pomo.mode==="short"?" active":""}" onclick="pomoSetMode('short')">Short break</button>
+        <button class="pomo-mode-btn${state.pomo.mode==="long"?" active":""}" onclick="pomoSetMode('long')">Long break</button>
+      </div>
+      <div class="pomo-ring">
+        <svg width="180" height="180" viewBox="0 0 180 180">
+          <circle class="pomo-track" cx="90" cy="90" r="${r}" stroke-dasharray="${circ}" stroke-dashoffset="0"/>
+          <circle class="pomo-progress" cx="90" cy="90" r="${r}" stroke="#7F77DD" stroke-dasharray="${circ}" stroke-dashoffset="${circ-offset}"/>
+        </svg>
+        <div class="pomo-time">${fmtTime(state.pomo.seconds)}</div>
+        <div class="pomo-label">${modeLabel}</div>
+      </div>
+      <div class="pomo-controls">
+        ${state.pomo.running
+          ?`<button class="pomo-btn secondary" onclick="pomoPause()">Pause</button>`
+          :`<button class="pomo-btn primary" onclick="pomoStart()">Start</button>`}
+        <button class="pomo-btn secondary" onclick="pomoReset()">Reset</button>
+      </div>
+      <select class="pomo-habit-select" onchange="state.pomo.habitId=this.value?Number(this.value):null">${habitOptions}</select>
+      <div class="pomo-sessions">Sessions completed today: ${state.pomo.sessions}</div>
+    </div>`;
+}
+
+function setFilter(f){state.filter=f;render();}
+function removeHabit(id){remove(id);}
+
+function render() {
+  const nav=`<div class="nav">
+    <button class="nav-btn${state.view==="habits"?" active":""}" onclick="state.view='habits';render()">Habits</button>
+    <button class="nav-btn${state.view==="pomo"?" active":""}" onclick="state.view='pomo';render()">Pomodoro</button>
+  </div>`;
+  document.getElementById("app").innerHTML=nav+(state.view==="habits"?renderHabits():renderPomo());
+  if(state.showAdd) document.getElementById("new-habit")?.focus();
+}
+
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+load(); render(); scheduleReminders();
+</script>
+</body>
+</html>
