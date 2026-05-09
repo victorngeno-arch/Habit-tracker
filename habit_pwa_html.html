@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Habit Tracker</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#7F77DD" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Habits" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f0; color: #1a1a1a; min-height: 100dvh; }
+    #app { max-width: 520px; margin: 0 auto; padding: 1.5rem 1rem 5rem; }
+    h1 { font-size: 20px; font-weight: 500; }
+    .subtitle { font-size: 13px; color: #888; margin-top: 2px; }
+    .saving { font-size: 12px; color: #aaa; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; }
+    .progress-wrap { margin-bottom: 1.5rem; }
+    .progress-labels { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; color: #666; }
+    .progress-labels span:last-child { font-weight: 500; color: #1a1a1a; }
+    .progress-bar { height: 8px; border-radius: 99px; background: #e0e0da; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 99px; background: #7F77DD; transition: width 0.4s ease; }
+    .all-done { margin-top: 8px; font-size: 13px; color: #1D9E75; font-weight: 500; }
+    .habits { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.5rem; }
+    .empty { text-align: center; padding: 2rem; color: #aaa; font-size: 14px; border: 1px dashed #ddd; border-radius: 12px; }
+    .habit-card { display: flex; align-items: center; gap: 12px; background: #fff; border: 0.5px solid #e0e0da; border-radius: 12px; padding: 0.75rem 1rem; transition: opacity 0.2s; }
+    .habit-card.checked { opacity: 0.8; }
+    .check-btn { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #888; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; outline: none; }
+    .check-btn.checked { background: var(--c); border-color: var(--c); }
+    .check-btn svg { display: none; }
+    .check-btn.checked svg { display: block; }
+    .habit-info { flex: 1; min-width: 0; }
+    .habit-name { font-weight: 500; font-size: 15px; }
+    .habit-name.done { text-decoration: line-through; color: #888; }
+    .habit-meta { display: flex; gap: 12px; font-size: 12px; color: #888; margin-top: 2px; }
+    .del-btn { background: none; border: none; cursor: pointer; color: #bbb; font-size: 22px; line-height: 1; padding: 2px 4px; }
+    .del-btn:hover { color: #e24b4a; }
+    .add-row { display: flex; gap: 8px; }
+    .add-row input { flex: 1; font-size: 14px; padding: 0 12px; height: 40px; border: 0.5px solid #ddd; border-radius: 8px; outline: none; background: #fff; }
+    .add-row input:focus { border-color: #7F77DD; }
+    .add-btn { padding: 0 18px; height: 40px; background: #7F77DD; color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+    .add-btn:disabled { opacity: 0.4; cursor: default; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1a1a1a; color: #f0f0f0; }
+      .habit-card { background: #2a2a2a; border-color: #333; }
+      .check-btn { background: #2a2a2a; border-color: #666; }
+      .progress-bar { background: #333; }
+      .progress-labels span:last-child { color: #f0f0f0; }
+      .add-row input { background: #2a2a2a; border-color: #444; color: #f0f0f0; }
+      .empty { border-color: #444; color: #666; }
+    }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const COLORS = ["#7F77DD","#1D9E75","#D85A30","#378ADD","#BA7517","#D4537E","#639922"];
+const KEY = "habit_tracker_v1";
+
+let habits = JSON.parse(localStorage.getItem(KEY) || "[]");
+let newName = "";
+
+function today() { return new Date().toISOString().split("T")[0]; }
+
+function save() { localStorage.setItem(KEY, JSON.stringify(habits)); }
+
+function getStreak(h) {
+  const log = h.log || {}, d = new Date(); let s = 0;
+  while (true) {
+    const k = d.toISOString().split("T")[0];
+    if (!log[k]) break;
+    s++; d.setDate(d.getDate() - 1);
+  }
+  return s;
+}
+
+function getLongest(h) {
+  const dates = Object.keys(h.log||{}).filter(k=>h.log[k]).sort();
+  let max=0,cur=0,prev=null;
+  for (const d of dates) {
+    cur = prev && (new Date(d)-new Date(prev))/86400000===1 ? cur+1 : 1;
+    if(cur>max)max=cur; prev=d;
+  }
+  return max;
+}
+
+function render() {
+  const d = today();
+  const done = habits.filter(h=>h.log[d]).length;
+  const pct = habits.length ? Math.round(done/habits.length*100) : 0;
+  const dateStr = new Date().toLocaleDateString("en-KE",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+
+  document.getElementById("app").innerHTML = `
+    <div class="header">
+      <div><h1>Habit Tracker</h1><div class="subtitle">${dateStr}</div></div>
+    </div>
+    ${habits.length ? `
+    <div class="progress-wrap">
+      <div class="progress-labels"><span>Today's progress</span><span>${done}/${habits.length} done</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      ${pct===100?'<div class="all-done">All habits complete for today!</div>':''}
+    </div>` : ''}
+    <div class="habits">
+      ${habits.length===0?'<div class="empty">No habits yet — add one below</div>':
+        habits.map(h=>{
+          const checked = !!h.log[d];
+          return `<div class="habit-card${checked?' checked':''}" style="border-left:3px solid ${h.color}">
+            <button class="check-btn${checked?' checked':''}" style="--c:${h.color}" onclick="toggle(${h.id})" aria-label="${checked?'Mark incomplete':'Mark complete'}">
+              <svg width="13" height="10" viewBox="0 0 13 10" fill="none"><path d="M1 5l4 4 7-8" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="habit-info">
+              <div class="habit-name${checked?' done':''}">${h.name}</div>
+              <div class="habit-meta"><span>🔥 ${getStreak(h)} day streak</span><span>Best: ${getLongest(h)}</span></div>
+            </div>
+            <button class="del-btn" onclick="remove(${h.id})" aria-label="Delete habit">×</button>
+          </div>`;
+        }).join('')
+      }
+    </div>
+    <div class="add-row">
+      <input id="new-habit" type="text" placeholder="Add a new habit…" value="${newName}" oninput="newName=this.value" onkeydown="if(event.key==='Enter')addHabit()" />
+      <button class="add-btn" onclick="addHabit()" ${!newName.trim()?'disabled':''}>Add</button>
+    </div>
+  `;
+  document.getElementById("new-habit")?.focus();
+}
+
+function toggle(id) {
+  const d = today();
+  habits = habits.map(h=>h.id===id?{...h,log:{...h.log,[d]:!h.log[d]}}:h);
+  save(); render();
+}
+
+function remove(id) {
+  habits = habits.filter(h=>h.id!==id);
+  save(); render();
+}
+
+function addHabit() {
+  const name = newName.trim();
+  if (!name) return;
+  habits.push({id:Date.now(),name,log:{},color:COLORS[habits.length%COLORS.length]});
+  newName=""; save(); render();
+}
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+render();
+</script>
+</body>
+</html>
